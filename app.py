@@ -1875,15 +1875,17 @@ def seed_demo_data():
     db.execute("DELETE FROM registrations")
     db.execute("DELETE FROM invoices")
 
+    today_str = date.today().isoformat()
+
     # 1. Settled Corporate Invoice (USD Multi-Currency)
     db.execute("""
         INSERT INTO invoices (
             invoice_number, customer_name, customer_email, description,
-            quantity, unit_price, subtotal, total_due, due_date, status, created_at
+            quantity, unit_price, subtotal, total_due, issue_date, due_date, status, created_at
         ) VALUES (
             'INV-DEMO-2026-01', 'Acme Global Corp', 'billing@acme.com',
             'AI Finance Automation Workshop (Corporate Tier)', 2, '500.00', '1000.00', '1000.00',
-            '2026-11-30', 'paid', '2026-10-01 09:00:00'
+            '2026-10-01', '2026-11-30', 'paid', '2026-10-01 09:00:00'
         )
     """)
     db.execute("""
@@ -1899,11 +1901,11 @@ def seed_demo_data():
     db.execute("""
         INSERT INTO invoices (
             invoice_number, customer_name, customer_email, description,
-            quantity, unit_price, subtotal, total_due, due_date, status, created_at
+            quantity, unit_price, subtotal, total_due, issue_date, due_date, status, created_at
         ) VALUES (
             'INV-DEMO-2026-02', 'TechVentures Pte Ltd', 'finance@techventures.io',
             'Enterprise AI Agent Deployment Advisory', 1, '850.00', '850.00', '850.00',
-            '2026-11-15', 'partially_paid', '2026-10-10 11:15:00'
+            '2026-10-10', '2026-11-15', 'partially_paid', '2026-10-10 11:15:00'
         )
     """)
     db.execute("""
@@ -1919,11 +1921,11 @@ def seed_demo_data():
     db.execute("""
         INSERT INTO invoices (
             invoice_number, customer_name, customer_email, description,
-            quantity, unit_price, subtotal, total_due, due_date, status, created_at
+            quantity, unit_price, subtotal, total_due, issue_date, due_date, status, created_at
         ) VALUES (
             'INV-DEMO-2026-03', 'Solaria Logistics', 'accounts@solaria.sg',
             'Executive Masterclass: Cloud & AI Integration', 1, '1200.00', '1200.00', '1200.00',
-            '2026-09-15', 'unpaid', '2026-09-01 08:30:00'
+            '2026-09-01', '2026-09-15', 'unpaid', '2026-09-01 08:30:00'
         )
     """)
     db.commit()
