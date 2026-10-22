@@ -8,8 +8,8 @@ info:
     participant registrations, single/multi-currency reconciliation, aging analysis,
     and automated escalation notices.
 servers:
-  - url: https://clutch-untying-outdoors.ngrok-free.dev
-    description: Production HTTPS endpoint
+  - url: https://ai-finance-admin-agent.onrender.com
+    description: Production Render Cloud Backend
 security:
   - ApiKeyAuth: []
 paths:
