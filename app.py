@@ -83,7 +83,7 @@ def _get_public_base_url() -> str:
     Return the public base URL used to build absolute download_url values.
 
     Reads PUBLIC_BASE_URL from the environment (set it in .env to your ngrok
-    HTTPS address, e.g. https://clutch-untying-outdoors.ngrok-free.dev).
+    HTTPS address, e.g. "https://ai-finance-admin-agent.onrender.com".
     Trailing slashes are stripped.  Falls back to http://127.0.0.1:5000 for
     local development — never hardcoded in source.
     """
