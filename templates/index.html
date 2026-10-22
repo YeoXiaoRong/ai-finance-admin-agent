@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Finance Admin Agent</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}" />
+</head>
+<body>
+
+<!-- =====================================================================
+     TOP NAV
+====================================================================== -->
+<header class="topnav">
+  <div class="topnav-inner">
+    <div class="brand">
+      <span class="brand-icon">&#9680;</span>
+      <span class="brand-name">AI Finance Admin Agent</span>
+    </div>
+    <span class="badge-prototype">Prototype</span>
+  </div>
+</header>
+
+<!-- =====================================================================
+     MAIN LAYOUT
+====================================================================== -->
+<main class="page-wrapper">
+<!-- JUDGE QUICK-DEMO STRIP -->
+<section style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
+  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
+    <div>
+      <h3 style="margin: 0; color: #1e40af; font-size: 1.05rem;">Judge Evaluation &amp; Demo Mode</h3>
+      <p style="margin: 4px 0 0; font-size: 0.875rem; color: #3b82f6;">
+        Click to populate synthetic records covering the full financial lifecycle (Paid via USD FX, Partial settlement, Overdue AR aging).
+      </p>
+    </div>
+    <button type="button" onclick="loadJudgeDemo()" style="background: #2563eb; color: #ffffff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
+      Populate Demo Data
+    </button>
+  </div>
+  <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dbeafe; font-size: 0.8rem; color: #475569;">
+    <strong>Demo Workflow:</strong>
+    1. Click <em>Populate Demo Data</em> to review existing accounts. &bull;
+    2. Create a new invoice on the left to preview calculations and PDF generation. &bull;
+    3. Reconcile foreign currency (USD/EUR/GBP) via the API or watsonx agent.
+  </div>
+</section>
+
+<script>
+async function loadJudgeDemo() {
+  try {
+    const res = await fetch('/api/demo/seed', { method: 'POST' });
+    if (res.ok) {
+      if (typeof loadPersistedInvoices === 'function') {
+        await loadPersistedInvoices();
+      } else {
+        location.reload();
+      }
+    }
+  } catch (err) {
+    console.error("Failed to seed demo data:", err);
+  }
+}
+</script>
+  <!-- ---- Left column: invoice form ---- -->
+  <section class="card form-card" aria-label="Create Invoice">
+    <h2 class="card-title">
+      <span class="card-icon">&#43;</span> New Invoice
+    </h2>
+
+    <!-- Toast notifications -->
+    <div id="toast" class="toast hidden" role="alert" aria-live="polite"></div>
+
+    <form id="invoiceForm" novalidate>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="customer_name">Customer Name <span class="req">*</span></label>
+          <input type="text" id="customer_name" name="customer_name"
+                 placeholder="e.g. Acme Pte Ltd" autocomplete="off" />
+          <span class="field-error" id="err_customer_name"></span>
+        </div>
+        <div class="field">
+          <label for="customer_email">Customer Email <span class="req">*</span></label>
+          <input type="email" id="customer_email" name="customer_email"
+                 placeholder="e.g. billing@acme.com" autocomplete="off" />
+          <span class="field-error" id="err_customer_email"></span>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="description">Service Description <span class="req">*</span></label>
+        <input type="text" id="description" name="description"
+               placeholder="e.g. Web Development — Phase 1" autocomplete="off" />
+        <span class="field-error" id="err_description"></span>
+      </div>
+
+      <div class="form-row">
+        <div class="field">
+          <label for="quantity">Quantity <span class="req">*</span></label>
+          <input type="number" id="quantity" name="quantity"
+                 min="1" step="1" placeholder="1" />
+          <span class="field-error" id="err_quantity"></span>
+        </div>
+        <div class="field">
+          <label for="unit_price">Unit Price <span class="req">*</span></label>
+          <input type="number" id="unit_price" name="unit_price"
+                 min="0" step="0.01" placeholder="0.00" />
+          <span class="field-error" id="err_unit_price"></span>
+        </div>
+        <div class="field">
+          <label for="currency">Currency</label>
+          <select id="currency" name="currency">
+            <option value="SGD" selected>SGD — Singapore Dollar</option>
+            <option value="USD">USD — US Dollar</option>
+            <option value="EUR">EUR — Euro</option>
+            <option value="GBP">GBP — British Pound</option>
+            <option value="MYR">MYR — Malaysian Ringgit</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- ---- Discount ---- -->
+      <div class="field-group-label">Discount <span class="optional-tag">(optional)</span></div>
+      <div class="form-row form-row-discount">
+        <div class="field">
+          <label for="discount_type">Discount Type</label>
+          <select id="discount_type" name="discount_type">
+            <option value="none" selected>No discount</option>
+            <option value="fixed">Fixed amount</option>
+            <option value="percentage">Percentage (%)</option>
+          </select>
+        </div>
+        <div class="field" id="discountValueField">
+          <label for="discount_value">
+            Discount Value
+            <span id="discountValueUnit" class="unit-hint"></span>
+          </label>
+          <input type="number" id="discount_value" name="discount_value"
+                 min="0" step="0.01" placeholder="0" disabled />
+          <span class="field-error" id="err_discount_value"></span>
+        </div>
+      </div>
+
+      <!-- ---- Tax ---- -->
+      <div class="form-row">
+        <div class="field">
+          <label for="tax_rate">
+            Tax Rate (%) <span class="optional-tag">(default 0%)</span>
+          </label>
+          <input type="number" id="tax_rate" name="tax_rate"
+                 min="0" step="0.01" placeholder="0" value="0" />
+          <span class="field-error" id="err_tax_rate"></span>
+        </div>
+        <div class="field">
+          <label for="due_date">Due Date <span class="req">*</span></label>
+          <input type="date" id="due_date" name="due_date" />
+          <span class="field-error" id="err_due_date"></span>
+        </div>
+      </div>
+
+      <!-- Live totals preview strip -->
+      <div class="totals-strip" id="totalsStrip" aria-live="polite">
+        <div class="totals-row">
+          <span class="totals-label">Subtotal</span>
+          <span class="totals-value" id="subtotalValue">—</span>
+        </div>
+        <div class="totals-row totals-discount-row hidden" id="discountRow">
+          <span class="totals-label totals-discount-label" id="discountRowLabel">Discount</span>
+          <span class="totals-value totals-discount-value" id="discountValue">—</span>
+        </div>
+        <div class="totals-row">
+          <span class="totals-label">Tax</span>
+          <span class="totals-value" id="taxValue">—</span>
+        </div>
+        <div class="totals-row totals-total-row">
+          <span class="totals-label">Total Due</span>
+          <span class="totals-value totals-total-value" id="totalDueValue">—</span>
+        </div>
+      </div>
+
+      <button type="button" class="btn btn-primary" id="previewBtn">
+        Preview &amp; Confirm
+      </button>
+
+    </form>
+  </section>
+
+  <!-- ---- Right column: invoice history ---- -->
+  <section class="card history-card" aria-label="Invoice History">
+    <h2 class="card-title">
+      <span class="card-icon">&#128203;</span> Invoice History
+    </h2>
+    <p class="history-hint">Invoices saved in database are shown below.</p>
+
+    <div class="table-wrapper">
+      <table id="historyTable" class="history-table">
+        <thead>
+          <tr>
+            <th>Invoice #</th>
+            <th>Customer</th>
+            <th>Total Due</th>
+            <th>Due Date</th>
+            <th>Status</th>
+            <th>PDF</th>
+          </tr>
+        </thead>
+        <tbody id="historyBody">
+          <tr id="emptyRow">
+            <td colspan="6" class="empty-msg">No invoices yet. Create one on the left!</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+</main>
+
+<!-- =====================================================================
+     CONFIRMATION MODAL
+====================================================================== -->
+<div id="confirmModal" class="modal-overlay hidden" role="dialog"
+     aria-modal="true" aria-labelledby="modalTitle">
+  <div class="modal">
+    <h3 id="modalTitle" class="modal-title">Confirm Invoice</h3>
+    <p class="modal-subtitle">Please review the details below before generating the PDF.</p>
+
+    <dl class="preview-grid" id="previewGrid">
+      <!-- Populated by JS -->
+    </dl>
+
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="cancelBtn">Cancel</button>
+      <button type="button" class="btn btn-primary" id="confirmBtn">
+        &#10003; Generate Invoice PDF
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- =====================================================================
+     SUCCESS MODAL
+====================================================================== -->
+<div id="successModal" class="modal-overlay hidden" role="dialog"
+     aria-modal="true" aria-labelledby="successTitle">
+  <div class="modal modal-success">
+    <div class="success-icon">&#10003;</div>
+    <h3 id="successTitle" class="modal-title">Invoice Created!</h3>
+    <p id="successMsg" class="modal-subtitle"></p>
+    <div class="modal-actions">
+      <button type="button" class="btn btn-secondary" id="closeSuccessBtn">Close</button>
+      <a id="downloadLink" class="btn btn-primary" href="#" download>
+        &#8659; Download PDF
+      </a>
+    </div>
+  </div>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+<!-- Persistent History Loader -->
+<script>
+async function loadPersistedInvoices() {
+  const tbody = document.getElementById("historyBody");
+  if (!tbody) return;
+
+  try {
+    const res = await fetch("/api/invoices");
+    if (!res.ok) return;
+
+    const invoices = await res.json();
+    if (!Array.isArray(invoices) || invoices.length === 0) {
+      tbody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="empty-msg">No invoices yet. Create one on the left!</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = invoices.map(inv => {
+      const statusClass = inv.status === 'paid' ? 'badge-success' : (inv.status === 'partially_paid' ? 'badge-warning' : '');
+      const downloadHref = inv.pdf_path ? `/api/invoices/${encodeURIComponent(inv.invoice_number)}/download` : '#';
+      return `
+        <tr>
+          <td style="font-family: monospace; font-weight: 600;">${inv.invoice_number}</td>
+          <td>${inv.customer_name}</td>
+          <td>SGD ${Number(inv.total_due).toFixed(2)}</td>
+          <td>${inv.due_date}</td>
+          <td><span class="badge ${statusClass}">${inv.status}</span></td>
+          <td>
+            <a href="${downloadHref}" target="_blank" style="color: #2563eb; text-decoration: underline;">
+              View PDF
+            </a>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error("Failed to load invoices from database:", err);
+  }
+}
+
+document.addEventListener("DOMContentLoaded", loadPersistedInvoices);
+
+// Hook into existing success modal close button to refresh table after a new creation
+const closeBtn = document.getElementById("closeSuccessBtn");
+if (closeBtn) {
+  closeBtn.addEventListener("click", loadPersistedInvoices);
+}
+</script>
+</body>
+</html>

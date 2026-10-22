@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: ai-finance-admin-agent
+    runtime: python
+    buildCommand: pip install -r requirements.txt
+    startCommand: gunicorn app:app
+    envVars:
+      - key: FINANCE_API_KEY
+        value: demo-judge-key-2026
+      - key: PYTHON_VERSION
+        value: 3.11.0

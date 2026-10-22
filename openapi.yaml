@@ -1,0 +1,384 @@
+openapi: 3.0.3
+info:
+  title: AI Finance Admin — Comprehensive Lifecycle API
+  version: 2.0.0
+  description: >-
+    End-to-end AI Finance Administrator API for IBM watsonx Orchestrate.
+    Features: Invoice generation (draft/confirm token workflow), programme catalogue,
+    participant registrations, single/multi-currency reconciliation, aging analysis,
+    and automated escalation notices.
+servers:
+  - url: https://clutch-untying-outdoors.ngrok-free.dev
+    description: Production HTTPS endpoint
+security:
+  - ApiKeyAuth: []
+paths:
+  /api/generate-invoice:
+    post:
+      operationId: generateInvoice
+      summary: Draft or finalize an invoice PDF
+      tags: [Invoices]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GenerateInvoiceRequest'
+      responses:
+        '200':
+          description: Draft preview or finalized PDF generated.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GenerateInvoiceResponse'
+        '400':
+          description: Validation error.
+        '401':
+          description: Unauthorized.
+
+  /api/invoices/{invoice_number}/token-download/{token}:
+    get:
+      operationId: downloadInvoicePdfByToken
+      summary: Download invoice PDF
+      tags: [Invoices]
+      security: []
+      parameters:
+        - name: invoice_number
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: token
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: PDF file.
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+        '403':
+          description: Token invalid or expired.
+
+  /api/invoices:
+    get:
+      operationId: listInvoices
+      summary: List all invoices
+      tags: [Invoices]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: Array of invoices.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/InvoiceFields'
+
+  /api/programmes:
+    get:
+      operationId: listProgrammes
+      summary: List available training programmes
+      tags: [Programmes]
+      security: []
+      responses:
+        '200':
+          description: Catalogue of programmes.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  programmes:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        name:
+                          type: string
+                        description:
+                          type: string
+                        fee:
+                          type: number
+                        currency:
+                          type: string
+                        tax_rate:
+                          type: number
+
+  /api/registrations:
+    get:
+      operationId: listRegistrations
+      summary: List customer registrations
+      tags: [Registrations]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, invoiced, paid, cancelled]
+      responses:
+        '200':
+          description: List of registrations.
+
+  /api/register:
+    post:
+      operationId: registerCustomer
+      summary: Register customer and generate draft invoice
+      tags: [Registrations]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [customer_name, customer_email, programme_name]
+              properties:
+                customer_name:
+                  type: string
+                customer_email:
+                  type: string
+                  format: email
+                programme_name:
+                  type: string
+                quantity:
+                  type: integer
+                  default: 1
+                discount_type:
+                  type: string
+                  enum: [none, fixed, percentage]
+                  default: none
+                discount_value:
+                  type: number
+                  default: 0
+                due_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Registration recorded and draft created.
+
+  /api/payments/record:
+    post:
+      operationId: recordPayment
+      summary: Record domestic SGD payment
+      tags: [Reconciliation]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoice_number, amount_paid]
+              properties:
+                invoice_number:
+                  type: string
+                amount_paid:
+                  type: string
+                payment_method:
+                  type: string
+                  enum: [bank_transfer, paynow, credit_card]
+                  default: bank_transfer
+                reference_number:
+                  type: string
+                payment_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Payment logged and reconciled.
+
+  /api/reconciliation/status/{invoice_number}:
+    get:
+      operationId: getReconciliationStatus
+      summary: Get invoice settlement status
+      tags: [Reconciliation]
+      security:
+        - ApiKeyAuth: []
+      parameters:
+        - name: invoice_number
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Reconciliation breakdown.
+
+  /api/reconciliation/aging-report:
+    get:
+      operationId: getAgingReport
+      summary: Get accounts receivable aging report
+      description: Returns invoices grouped into Current, 1-30, 31-60, and 60+ days overdue buckets.
+      tags: [Escalations]
+      security:
+        - ApiKeyAuth: []
+      responses:
+        '200':
+          description: AR aging breakdown.
+
+  /api/reconciliation/escalate:
+    post:
+      operationId: triggerEscalations
+      summary: Generate overdue payment escalation notices
+      description: Produces ready-to-send payment reminders scaled by severity tier.
+      tags: [Escalations]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                invoice_number:
+                  type: string
+      responses:
+        '200':
+          description: Overdue reminder notices.
+
+  /api/fx-rates:
+    get:
+      operationId: getFxRates
+      summary: Get exchange rates relative to SGD
+      tags: [Multi-Currency]
+      security: []
+      responses:
+        '200':
+          description: Supported FX rates.
+
+  /api/payments/multi-currency-record:
+    post:
+      operationId: recordMultiCurrencyPayment
+      summary: Record payment in foreign currency with auto-conversion
+      tags: [Multi-Currency]
+      security:
+        - ApiKeyAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [invoice_number, amount_paid, currency]
+              properties:
+                invoice_number:
+                  type: string
+                amount_paid:
+                  type: string
+                currency:
+                  type: string
+                  enum: [SGD, USD, EUR, GBP, MYR]
+                payment_method:
+                  type: string
+                  default: bank_transfer
+                reference_number:
+                  type: string
+                payment_date:
+                  type: string
+                  format: date
+      responses:
+        '201':
+          description: Multi-currency payment processed.
+
+components:
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: FINANCE_API_KEY authentication.
+  schemas:
+    InvoiceFields:
+      type: object
+      properties:
+        invoice_number:
+          type: string
+        customer_name:
+          type: string
+        customer_email:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: string
+        subtotal:
+          type: string
+        total_due:
+          type: string
+        currency:
+          type: string
+        due_date:
+          type: string
+        status:
+          type: string
+    GenerateInvoiceRequest:
+      type: object
+      properties:
+        customer_name:
+          type: string
+        customer_email:
+          type: string
+        description:
+          type: string
+        quantity:
+          type: integer
+        unit_price:
+          type: number
+        currency:
+          type: string
+          default: SGD
+        discount_type:
+          type: string
+          enum: [none, fixed, percentage]
+          default: none
+        discount_value:
+          type: number
+          default: 0
+        tax_rate:
+          type: number
+          default: 0
+        due_date:
+          type: string
+        draft:
+          type: boolean
+          default: true
+        confirm_token:
+          type: string
+    GenerateInvoiceResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+        mode:
+          type: string
+          enum: [draft, final]
+        draft_token:
+          type: string
+        invoice_number:
+          type: string
+        customer_name:
+          type: string
+        total_due:
+          type: string
+        browser_download_url:
+          type: string
