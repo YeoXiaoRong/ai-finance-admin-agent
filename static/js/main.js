@@ -368,7 +368,7 @@ async function submitInvoice(data) {
 
     closeConfirmModal();
     showSuccessModal(json.invoice);
-    addHistoryRow(json.invoice);
+    if (typeof loadPersistedInvoices === "function") await loadPersistedInvoices();
     form.reset();
     // Reset discount field state after form reset
     onDiscountTypeChange();
@@ -394,8 +394,9 @@ function showSuccessModal(invoice) {
     `Invoice ${invoice.invoice_number} for ${invoice.customer_name} ` +
     `(${amount}) has been created.`;
 
-  downloadLink.href = invoice.browser_download_url || `/api/invoices/${invoice.invoice_number}/download`;
+  downloadLink.href = invoice.browser_download_url || "#";
   downloadLink.download = `${invoice.invoice_number}.pdf`;
+  downloadLink.style.pointerEvents = invoice.browser_download_url ? "auto" : "none";
 
   successModal.classList.remove("hidden");
   closeSuccessBtn.focus();
@@ -428,7 +429,7 @@ function addHistoryRow(invoice) {
     <td><span class="status-badge status-${invoice.status}">${invoice.status}</span></td>
     <td>
       <a class="dl-link"
-         href="${invoice.browser_download_url || `/api/invoices/${invoice.invoice_number}/download`}"
+         href="${invoice.browser_download_url || "#"}"
          download="${invoice.invoice_number}.pdf">
         ↓ PDF
       </a>
@@ -486,8 +487,6 @@ document.addEventListener("keydown", (e) => {
 // ---------------------------------------------------------------------------
 initDueDate();
 onDiscountTypeChange();   // set initial disabled state for discount_value
-loadHistory();
-
 async function loadInvoices() {
   const tableBody = document.querySelector("#invoice-table-body") || document.querySelector("table tbody");
   if (!tableBody) return;
@@ -526,4 +525,4 @@ async function loadInvoices() {
 }
 
 // Call on page load
-document.addEventListener("DOMContentLoaded", loadInvoices);
+// Invoice history is loaded by loadPersistedInvoices() in index.html.

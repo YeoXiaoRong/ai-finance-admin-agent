@@ -696,50 +696,29 @@ def index():
 
 @app.route("/api/invoices", methods=["GET"])
 def list_invoices():
-    """
-    Returns all stored invoices from SQLite.
-    Compatible with both the frontend table and watsonx Orchestrate.
-    """
+    """Invoice history with fresh, short-lived browser PDF links."""
     db = get_db()
-    rows = db.execute(
-        """
-        SELECT 
-            invoice_number, customer_name, customer_email, 
-            total_due, due_date, status, created_at
-        FROM invoices
-        ORDER BY created_at DESC
-        """
-    ).fetchall()
-
+    rows = db.execute("""
+        SELECT invoice_number, customer_name, customer_email,
+               total_due, currency, due_date, status, created_at, pdf_filename
+        FROM invoices ORDER BY created_at DESC
+    """).fetchall()
     result = []
-    for r in rows:
-        inv_num = str(r["invoice_number"])
-        pdf_file = os.path.join(INVOICE_STORAGE_DIR, f"{inv_num}.pdf") if 'INVOICE_STORAGE_DIR' in globals() else os.path.join("invoices", f"{inv_num}.pdf")
-        
-        result.append({
-            "invoice_number": inv_num,
-            "customer_name": str(r["customer_name"] or "N/A"),
-            "customer_email": str(r["customer_email"] or ""),
-            "total_due": str(r["total_due"] or "0.00"),
-            "due_date": str(r["due_date"] or ""),
-            "status": str(r["status"] or "unpaid"),
-            "has_pdf": os.path.exists(pdf_file)
-        })
-
+    for row in rows:
+        inv = dict(row)
+        number = inv["invoice_number"]
+        # A saved invoice can have its PDF regenerated from DB details after
+        # Render clears ephemeral files; a filename alone is not proof of a file.
+        inv["has_pdf"] = bool(inv["pdf_filename"])
+        inv["browser_download_url"] = None
+        if inv["has_pdf"]:
+            token = _make_download_token(number)
+            inv["browser_download_url"] = (
+                f"{_get_public_base_url()}/api/invoices/{number}/token-download/{token}"
+            )
+        result.append(inv)
     return jsonify(result), 200
-@app.route("/api/invoices/<invoice_number>/download", methods=["GET"])
-def download_invoice_pdf(invoice_number):
-    """
-    Direct browser download endpoint for invoice PDFs.
-    """
-    folder = INVOICE_STORAGE_DIR if 'INVOICE_STORAGE_DIR' in globals() else os.path.join(os.getcwd(), "invoices")
-    filename = f"{invoice_number}.pdf"
-    file_path = os.path.join(folder, filename)
-    
-    if not os.path.exists(file_path):
-        return jsonify({"error": "Invoice PDF not found."}), 404
-        
-    return send_file(file_path, as_attachment=True, download_name=filename, mimetype="application/pdf")
+
 
 @app.route("/api/invoices", methods=["POST"])
 def create_invoice():
@@ -1122,46 +1101,36 @@ def generate_invoice_api():
     return _finalise_invoice(invoice)
 
 
+def _invoice_pdf_file(invoice_number: str):
+    """Locate or regenerate the existing invoice's PDF from its stored values."""
+    db = get_db()
+    row = db.execute("SELECT * FROM invoices WHERE invoice_number = ?", (invoice_number,)).fetchone()
+    if row is None or not row["pdf_filename"]:
+        abort(404)
+    # Always use the invoice number to derive the path, not a user-supplied path.
+    if not all(c.isalnum() or c == "-" for c in invoice_number):
+        abort(404)
+    filepath = INVOICE_DIR / f"{invoice_number}.pdf"
+    if not filepath.is_file():
+        invoice = dict(row)
+        invoice["taxable_amount"] = str(
+            Decimal(invoice["subtotal"]) - Decimal(invoice["discount_amount"])
+        )
+        try:
+            generate_invoice_pdf(invoice)
+        except Exception:
+            app.logger.exception("Failed to regenerate PDF for invoice %s", invoice_number)
+            abort(500, description="Unable to regenerate invoice PDF")
+    return filepath
+
+
 @app.route("/api/invoices/<invoice_number>/download")
 @require_api_key
 def download_invoice(invoice_number: str):
-    """
-    Serve the PDF file for a given invoice number.
-    Protected: requires X-API-Key header.
-
-    Always responds with:
-      Content-Type: application/pdf
-      Content-Disposition: attachment; filename="<invoice_number>.pdf"
-
-    The filename is derived from the invoice number (format INV-YYYYMMDD-XXXX)
-    which contains only alphanumerics and hyphens — safe for all clients.
-    """
-    db = get_db()
-    row = db.execute(
-        "SELECT pdf_filename FROM invoices WHERE invoice_number = ?",
-        (invoice_number,),
-    ).fetchone()
-    if row is None or not row["pdf_filename"]:
-        abort(404)
-
-    # Sanitise the download filename: keep only the invoice number stem
-    # (alphanumerics and hyphens) and append .pdf — never trust DB content
-    # directly as a header value.
-    safe_stem = "".join(
-        c for c in str(invoice_number) if c.isalnum() or c == "-"
-    )
-    safe_filename = f"{safe_stem}.pdf"
-
-    filepath = INVOICE_DIR / row["pdf_filename"]
-    if not filepath.is_file():
-        abort(404)
-
-    return send_file(
-        str(filepath),
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=safe_filename,
-    )
+    """API-key-protected download for server-to-server clients."""
+    filepath = _invoice_pdf_file(invoice_number)
+    return send_file(str(filepath), mimetype="application/pdf",
+                     as_attachment=True, download_name=f"{invoice_number}.pdf")
 
 
 @app.route("/api/invoices/<invoice_number>/token-download/<token>")
@@ -1190,29 +1159,9 @@ def download_invoice_by_token(invoice_number: str, token: str):
                        "Generate a new invoice to get a fresh link.",
         }), 403
 
-    db = get_db()
-    row = db.execute(
-        "SELECT pdf_filename FROM invoices WHERE invoice_number = ?",
-        (invoice_number,),
-    ).fetchone()
-    if row is None or not row["pdf_filename"]:
-        abort(404)
-
-    safe_stem = "".join(
-        c for c in str(invoice_number) if c.isalnum() or c == "-"
-    )
-    safe_filename = f"{safe_stem}.pdf"
-
-    filepath = INVOICE_DIR / row["pdf_filename"]
-    if not filepath.is_file():
-        abort(404)
-
-    return send_file(
-        str(filepath),
-        mimetype="application/pdf",
-        as_attachment=True,
-        download_name=safe_filename,
-    )
+    filepath = _invoice_pdf_file(invoice_number)
+    return send_file(str(filepath), mimetype="application/pdf",
+                     as_attachment=False, download_name=f"{invoice_number}.pdf")
 
 
 # ---------------------------------------------------------------------------

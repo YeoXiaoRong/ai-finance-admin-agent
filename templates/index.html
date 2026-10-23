@@ -276,7 +276,7 @@ async function loadPersistedInvoices() {
 
     tbody.innerHTML = invoices.map(inv => {
       const statusClass = inv.status === 'paid' ? 'badge-success' : (inv.status === 'partially_paid' ? 'badge-warning' : '');
-      const downloadHref = inv.pdf_path ? `/api/invoices/${encodeURIComponent(inv.invoice_number)}/download` : '#';
+      const downloadHref = inv.browser_download_url || null;
       return `
         <tr>
           <td style="font-family: monospace; font-weight: 600;">${inv.invoice_number}</td>
@@ -285,9 +285,9 @@ async function loadPersistedInvoices() {
           <td>${inv.due_date}</td>
           <td><span class="badge ${statusClass}">${inv.status}</span></td>
           <td>
-            <a href="${downloadHref}" target="_blank" style="color: #2563eb; text-decoration: underline;">
-              View PDF
-            </a>
+            ${downloadHref
+              ? `<a href="${downloadHref}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">View PDF</a>`
+              : `<span style="color:#999">PDF unavailable</span>`}
           </td>
         </tr>
       `;

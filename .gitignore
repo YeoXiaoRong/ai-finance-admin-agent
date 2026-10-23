@@ -1,6 +1,9 @@
-﻿venv/
+.env
+.env.*
+!.env.example
+venv/
+.venv/
 __pycache__/
 *.pyc
-.env
 *.db
-invoices/*.pdf
+generated_invoices/
