@@ -357,7 +357,7 @@ async function submitInvoice(data) {
 
     closeConfirmModal();
     showSuccessModal(json.invoice);
-    addHistoryRow(json.invoice);
+    await loadPersistedInvoices();
     form.reset();
     // Reset discount field state after form reset
     onDiscountTypeChange();
