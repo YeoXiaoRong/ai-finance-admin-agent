@@ -450,7 +450,7 @@ onDiscountTypeChange();   // set initial disabled state for discount_value
 async function loadPersistedInvoices() {
   if (!historyBody) return;
   try {
-    const res = await fetch("/api/invoices");
+    const res = await fetch("/api/invoices", { cache: "no-store" });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const invoices = await res.json();
     if (!Array.isArray(invoices) || !invoices.length) {
@@ -511,3 +511,24 @@ document.getElementById("fillSampleInvoiceBtn")?.addEventListener("click", () =>
 });
 
 loadPersistedInvoices();
+
+// Refresh invoice history automatically after invoices are created via the AI chat.
+// This reads existing invoices only; it never creates or changes records.
+let invoiceHistoryRefreshRunning = false;
+async function refreshInvoiceHistorySafely() {
+  if (invoiceHistoryRefreshRunning || document.hidden) return;
+  invoiceHistoryRefreshRunning = true;
+  try {
+    await loadPersistedInvoices();
+  } finally {
+    invoiceHistoryRefreshRunning = false;
+  }
+}
+
+// Poll every 10 seconds while the page is visible.
+setInterval(refreshInvoiceHistorySafely, 10000);
+
+// Refresh immediately when a visitor returns to this tab.
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) refreshInvoiceHistorySafely();
+});
