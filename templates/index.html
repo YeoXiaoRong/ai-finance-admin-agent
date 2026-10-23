@@ -257,5 +257,28 @@
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
+
+<!-- IBM watsonx Orchestrate Live embedded chat -->
+<div id="root"></div>
+<script>
+  window.wxOConfiguration = {
+    orchestrationID: "20261020-1329-1607-203c-a080e17edabf_20261020-1335-2214-0081-052fee5851a7",
+    hostURL: "https://ap-southeast-1.dl.watson-orchestrate.ibm.com",
+    rootElementID: "root",
+    chatOptions: {
+      agentId: "b786aa19-67b3-42d6-9356-ed9bef183692",
+      agentEnvironmentId: "8a1aec33-ddd5-418f-b274-1b179b12b0c6"
+    }
+  };
+  setTimeout(function () {
+    const script = document.createElement('script');
+    script.src = `${window.wxOConfiguration.hostURL}/wxochat/wxoLoader.js?embed=true`;
+    script.addEventListener('load', function () {
+      wxoLoader.init();
+    });
+    document.head.appendChild(script);
+  }, 0);
+</script>
+
 </body>
 </html>
