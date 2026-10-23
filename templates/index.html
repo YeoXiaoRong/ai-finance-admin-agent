@@ -25,45 +25,44 @@
      MAIN LAYOUT
 ====================================================================== -->
 <main class="page-wrapper">
-<!-- JUDGE QUICK-DEMO STRIP -->
-<section style="background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 8px; padding: 16px 20px; margin-bottom: 24px;">
-  <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 12px;">
-    <div>
-      <h3 style="margin: 0; color: #1e40af; font-size: 1.05rem;">Judge Evaluation &amp; Demo Mode</h3>
-      <p style="margin: 4px 0 0; font-size: 0.875rem; color: #3b82f6;">
-        Click to populate synthetic records covering the full financial lifecycle (Paid via USD FX, Partial settlement, Overdue AR aging).
-      </p>
-    </div>
-    <button type="button" onclick="loadJudgeDemo()" style="background: #2563eb; color: #ffffff; border: none; padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: background 0.2s;">
-      Populate Demo Data
-    </button>
-  </div>
-  <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #dbeafe; font-size: 0.8rem; color: #475569;">
-    <strong>Demo Workflow:</strong>
-    1. Click <em>Populate Demo Data</em> to review existing accounts. &bull;
-    2. Create a new invoice on the left to preview calculations and PDF generation. &bull;
-    3. Reconcile foreign currency (USD/EUR/GBP) via the API or watsonx agent.
-  </div>
-</section>
+<!-- JUDGE TESTING GUIDE -->
+<section class="judge-guide" aria-labelledby="judgeGuideTitle">
+    <p class="guide-kicker">Start here · Judge testing instructions</p>
+    <h2 id="judgeGuideTitle">Welcome to AI Finance Admin Agent</h2>
+    <p>This prototype helps small businesses reduce repetitive invoice administration. You can test how an invoice is calculated, reviewed by a person, finalized and saved as a PDF. <strong>No account or API key is needed for the browser-based invoice demonstration.</strong></p>
 
-<script>
-async function loadJudgeDemo() {
-  try {
-    const res = await fetch('/api/demo/seed', { method: 'POST' });
-    if (res.ok) {
-      if (typeof loadPersistedInvoices === 'function') {
-        await loadPersistedInvoices();
-      } else {
-        location.reload();
-      }
-    }
-  } catch (err) {
-    console.error("Failed to seed demo data:", err);
-  }
-}
-</script>
+    <h3>Follow these steps to test the main workflow</h3>
+    <div class="guide-steps">
+      <div class="guide-step"><span class="guide-step-number">1</span><h3>Enter invoice details</h3><p>Use the <strong>New Invoice</strong> form below. Enter a fictional customer name and email, a service description, quantity, unit price and due date. You can use the sample values provided below.</p></div>
+      <div class="guide-step"><span class="guide-step-number">2</span><h3>Check the calculations</h3><p>Review the <strong>Subtotal, Discount, Tax and Total Due</strong> shown beneath the form. Optionally change the discount type or tax rate to see how the amount changes.</p></div>
+      <div class="guide-step"><span class="guide-step-number">3</span><h3>Preview before approval</h3><p>Click <strong>Preview &amp; Confirm</strong>. A confirmation window displays the invoice details. Check them carefully. Choose <strong>Cancel</strong> to make changes or continue to approve.</p></div>
+      <div class="guide-step"><span class="guide-step-number">4</span><h3>Approve and generate</h3><p>Click <strong>Generate Invoice PDF</strong> in the confirmation window. This is the human-approval step before invoice finalization. The application attempts to save the invoice and generate its PDF.</p></div>
+      <div class="guide-step"><span class="guide-step-number">5</span><h3>Review the saved result</h3><p>After successful creation, use <strong>Download PDF</strong> in the success window. You can also check <strong>Invoice History</strong> for the new record and select <strong>View PDF</strong> when available.</p></div>
+    </div>
+
+    <div class="guide-sample">
+      <h3>Sample data for judges (fictional)</h3>
+      <div class="guide-sample-grid">
+        <div class="guide-sample-item"><strong>Customer Name</strong>Demo Business Pte Ltd</div>
+        <div class="guide-sample-item"><strong>Customer Email</strong>demo@example.com</div>
+        <div class="guide-sample-item"><strong>Service Description</strong>Website Maintenance</div>
+        <div class="guide-sample-item"><strong>Quantity</strong>2</div>
+        <div class="guide-sample-item"><strong>Unit Price</strong>150.00</div>
+        <div class="guide-sample-item"><strong>Currency</strong>SGD</div>
+        <div class="guide-sample-item"><strong>Discount / Tax</strong>No discount / 0%</div>
+        <div class="guide-sample-item"><strong>Expected Total Due</strong>SGD 300.00</div>
+        <div class="guide-sample-item"><strong>Due Date</strong>Choose a future date</div>
+      </div>
+    </div>
+
+    <div class="guide-actions"><button type="button" class="guide-action" id="fillSampleInvoiceBtn">Fill Form with Sample Details</button><a class="guide-action guide-action-secondary" href="#invoiceForm">Start Testing — Create an Invoice ↓</a></div>
+    <p class="guide-note"><strong>What to look for:</strong> Live calculations, the review-and-confirm approval step, PDF generation and saved invoice history. If a PDF link is unavailable, please note that as a prototype limitation.</p>
+    <p class="guide-footnote"><strong>Prototype scope:</strong> This page demonstrates invoice administration. Registration automation, payment reconciliation and broader AI-agent coordination are separate development or integration areas and should not be assumed to be fully available from this page. Use fictional details only; do not enter real financial or personal information.</p>
+  </section>
+
+
   <!-- ---- Left column: invoice form ---- -->
-  <section class="card form-card" aria-label="Create Invoice">
+  <section class="card form-card" id="invoiceSection" aria-label="Create Invoice">
     <h2 class="card-title">
       <span class="card-icon">&#43;</span> New Invoice
     </h2>
@@ -258,52 +257,5 @@ async function loadJudgeDemo() {
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 
-<!-- Persistent History Loader -->
-<script>
-async function loadPersistedInvoices() {
-  const tbody = document.getElementById("historyBody");
-  if (!tbody) return;
-
-  try {
-    const res = await fetch("/api/invoices");
-    if (!res.ok) return;
-
-    const invoices = await res.json();
-    if (!Array.isArray(invoices) || invoices.length === 0) {
-      tbody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="empty-msg">No invoices yet. Create one on the left!</td></tr>';
-      return;
-    }
-
-    tbody.innerHTML = invoices.map(inv => {
-      const statusClass = inv.status === 'paid' ? 'badge-success' : (inv.status === 'partially_paid' ? 'badge-warning' : '');
-      const downloadHref = inv.browser_download_url || null;
-      return `
-        <tr>
-          <td style="font-family: monospace; font-weight: 600;">${inv.invoice_number}</td>
-          <td>${inv.customer_name}</td>
-          <td>SGD ${Number(inv.total_due).toFixed(2)}</td>
-          <td>${inv.due_date}</td>
-          <td><span class="badge ${statusClass}">${inv.status}</span></td>
-          <td>
-            ${downloadHref
-              ? `<a href="${downloadHref}" target="_blank" rel="noopener noreferrer" style="color: #2563eb; text-decoration: underline;">View PDF</a>`
-              : `<span style="color:#999">PDF unavailable</span>`}
-          </td>
-        </tr>
-      `;
-    }).join('');
-  } catch (err) {
-    console.error("Failed to load invoices from database:", err);
-  }
-}
-
-document.addEventListener("DOMContentLoaded", loadPersistedInvoices);
-
-// Hook into existing success modal close button to refresh table after a new creation
-const closeBtn = document.getElementById("closeSuccessBtn");
-if (closeBtn) {
-  closeBtn.addEventListener("click", loadPersistedInvoices);
-}
-</script>
 </body>
 </html>

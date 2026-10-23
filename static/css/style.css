@@ -539,3 +539,32 @@ input:disabled {
   font-weight: 700;
   margin: 0 auto .9rem;
 }
+
+
+/* Judge testing guide */
+/* Judge testing guide: styles scoped to avoid changing existing invoice UI */
+.judge-guide { grid-column: 1 / -1; width: 100%; background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 12px; padding: 24px; margin-bottom: 24px; color: #334155; }
+.judge-guide h2 { color: #1e40af; margin: 0 0 8px; font-size: 1.45rem; }
+.judge-guide h3 { color: #1e3a8a; font-size: 1.04rem; margin: 0 0 12px; }
+.judge-guide p { margin: 0 0 12px; line-height: 1.65; }
+.judge-guide .guide-kicker { color: #2563eb; font-weight: 700; font-size: .82rem; letter-spacing: .04em; text-transform: uppercase; margin-bottom: 6px; }
+.judge-guide .guide-steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin: 18px 0; }
+.judge-guide .guide-step { background: #fff; border: 1px solid #dbeafe; border-radius: 10px; padding: 16px; }
+.judge-guide .guide-step-number { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; border-radius: 50%; background: #2563eb; color: #fff; font-weight: 700; margin-bottom: 10px; }
+.judge-guide .guide-step h3 { margin: 0 0 7px; }
+.judge-guide .guide-step p { font-size: .9rem; margin: 0; }
+.judge-guide .guide-sample { background: #fff; border: 1px solid #bfdbfe; border-radius: 10px; padding: 18px; margin: 16px 0; }
+.judge-guide .guide-sample-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px 18px; }
+.judge-guide .guide-sample-item { font-size: .92rem; }
+.judge-guide .guide-sample-item strong { display: block; color: #475569; font-size: .78rem; margin-bottom: 3px; }
+.judge-guide .guide-actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 16px 0; }
+.judge-guide .guide-action { display: inline-block; background: #2563eb; color: #fff; padding: 11px 18px; border-radius: 8px; text-decoration: none; font-weight: 700; }
+.judge-guide .guide-action:hover { background: #1d4ed8; }
+.judge-guide .guide-note { border-left: 3px solid #60a5fa; padding: 9px 12px; background: #dbeafe; border-radius: 0 6px 6px 0; font-size: .9rem; }
+.judge-guide .guide-footnote { font-size: .86rem; color: #475569; margin-top: 12px; }
+@media (max-width: 600px) { .judge-guide { padding: 16px; } }
+.judge-guide .guide-action { border: 0; font: inherit; cursor: pointer; text-align: center; }
+.judge-guide .guide-action-secondary { background: #fff; color: #1d4ed8; border: 1px solid #93c5fd; }
+.judge-guide .guide-action-secondary:hover { background: #dbeafe; }
+html { scroll-behavior: smooth; }
+#invoiceForm { scroll-margin-top: 85px; }

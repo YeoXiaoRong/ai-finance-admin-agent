@@ -92,17 +92,6 @@ function initDueDate() {
   dueDateInput.min = todayISO();
 }
 
-/** Load invoice history from the API on page load. */
-async function loadHistory() {
-  try {
-    const res = await fetch("/api/invoices");
-    if (!res.ok) return;
-    const invoices = await res.json();
-    invoices.forEach(addHistoryRow);
-  } catch {
-    // Network error — silently skip; history will populate on new creates
-  }
-}
 
 // ---------------------------------------------------------------------------
 // Discount type toggle
@@ -368,7 +357,7 @@ async function submitInvoice(data) {
 
     closeConfirmModal();
     showSuccessModal(json.invoice);
-    if (typeof loadPersistedInvoices === "function") await loadPersistedInvoices();
+    addHistoryRow(json.invoice);
     form.reset();
     // Reset discount field state after form reset
     onDiscountTypeChange();
@@ -394,9 +383,8 @@ function showSuccessModal(invoice) {
     `Invoice ${invoice.invoice_number} for ${invoice.customer_name} ` +
     `(${amount}) has been created.`;
 
-  downloadLink.href = invoice.browser_download_url || "#";
+  downloadLink.href = invoice.browser_download_url || `/api/invoices/${invoice.invoice_number}/download`;
   downloadLink.download = `${invoice.invoice_number}.pdf`;
-  downloadLink.style.pointerEvents = invoice.browser_download_url ? "auto" : "none";
 
   successModal.classList.remove("hidden");
   closeSuccessBtn.focus();
@@ -404,37 +392,6 @@ function showSuccessModal(invoice) {
 
 function closeSuccessModal() {
   successModal.classList.add("hidden");
-}
-
-// ---------------------------------------------------------------------------
-// Invoice history table
-// ---------------------------------------------------------------------------
-
-function addHistoryRow(invoice) {
-  // Remove "no invoices" placeholder if present
-  const empty = document.getElementById("emptyRow");
-  if (empty) empty.remove();
-
-  // Prefer total_due; fall back to subtotal for older records
-  const displayAmount = invoice.total_due && invoice.total_due !== "0"
-    ? invoice.total_due
-    : invoice.subtotal;
-
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td><span class="inv-number">${invoice.invoice_number}</span></td>
-    <td>${escapeHtml(invoice.customer_name)}</td>
-    <td>${formatCurrency(displayAmount, invoice.currency)}</td>
-    <td>${invoice.due_date}</td>
-    <td><span class="status-badge status-${invoice.status}">${invoice.status}</span></td>
-    <td>
-      <a class="dl-link"
-         href="${invoice.browser_download_url || "#"}"
-         download="${invoice.invoice_number}.pdf">
-        ↓ PDF
-      </a>
-    </td>`;
-  historyBody.prepend(tr);
 }
 
 /** Minimal HTML escaping to avoid XSS in table cells. */
@@ -487,42 +444,70 @@ document.addEventListener("keydown", (e) => {
 // ---------------------------------------------------------------------------
 initDueDate();
 onDiscountTypeChange();   // set initial disabled state for discount_value
-async function loadInvoices() {
-  const tableBody = document.querySelector("#invoice-table-body") || document.querySelector("table tbody");
-  if (!tableBody) return;
 
+
+// Invoice history: single renderer, using signed browser PDF links supplied by the API.
+async function loadPersistedInvoices() {
+  if (!historyBody) return;
   try {
     const res = await fetch("/api/invoices");
-    if (!res.ok) return;
-
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const invoices = await res.json();
-    if (!invoices || invoices.length === 0) {
-      tableBody.innerHTML = `<tr><td colspan="6" class="text-center py-4">No invoices yet. Create one on the left!</td></tr>`;
+    if (!Array.isArray(invoices) || !invoices.length) {
+      historyBody.innerHTML = '<tr id="emptyRow"><td colspan="6" class="empty-msg">No invoices yet. Create one on the left!</td></tr>';
       return;
     }
-
-    tableBody.innerHTML = invoices.map(inv => `
-      <tr>
-        <td class="font-mono font-medium">${inv.invoice_number}</td>
-        <td>${inv.customer_name}</td>
-        <td>SGD ${inv.total_due}</td>
-        <td>${inv.due_date}</td>
-        <td>
-          <span class="badge ${inv.status === 'paid' ? 'badge-success' : 'badge-warning'}">
-            ${inv.status}
-          </span>
-        </td>
-        <td>
-          <a href="/api/invoices/${inv.invoice_number}/download" target="_blank" class="text-blue-600 underline">
-            View PDF
-          </a>
-        </td>
-      </tr>
-    `).join("");
+    historyBody.innerHTML = invoices.map(inv => {
+      const currency = inv.currency || "SGD";
+      const amount = formatCurrency(inv.total_due ?? inv.subtotal ?? 0, currency);
+      const status = String(inv.status || "unpaid");
+      const url = inv.browser_download_url;
+      const safeUrl = typeof url === "string" && (/^\/api\/invoices\//.test(url) || /^https:\/\//i.test(url)) ? url : null;
+      const pdf = safeUrl
+        ? `<a class="dl-link" href="${escapeHtml(safeUrl)}" target="_blank" rel="noopener noreferrer">View PDF</a>`
+        : '<span class="pdf-unavailable">PDF unavailable</span>';
+      return `<tr>
+        <td><span class="inv-number">${escapeHtml(inv.invoice_number || "")}</span></td>
+        <td>${escapeHtml(inv.customer_name || "")}</td>
+        <td>${escapeHtml(amount)}</td>
+        <td>${escapeHtml(inv.due_date || "")}</td>
+        <td><span class="status-badge status-${status.replace(/[^a-z_-]/gi, "")}">${escapeHtml(status.replace(/_/g, " "))}</span></td>
+        <td>${pdf}</td>
+      </tr>`;
+    }).join("");
   } catch (err) {
-    console.error("Failed to load invoice history:", err);
+    console.error("Unable to load invoice history:", err);
+    historyBody.innerHTML = '<tr><td colspan="6" class="empty-msg">Invoice history is temporarily unavailable.</td></tr>';
   }
 }
 
-// Call on page load
-// Invoice history is loaded by loadPersistedInvoices() in index.html.
+// Judge sample data only fills the form. It never creates database records.
+document.getElementById("fillSampleInvoiceBtn")?.addEventListener("click", () => {
+  const sample = {
+    customer_name: "Demo Business Pte Ltd",
+    customer_email: "demo@example.com",
+    description: "Website Maintenance",
+    quantity: "2",
+    unit_price: "150",
+    currency: "SGD",
+    discount_type: "none",
+    tax_rate: "0"
+  };
+  Object.entries(sample).forEach(([id, value]) => {
+    const field = document.getElementById(id);
+    if (field) field.value = value;
+  });
+  const dueDate = document.getElementById("due_date");
+  if (dueDate) {
+    const date = new Date();
+    date.setDate(date.getDate() + 14);
+    dueDate.value = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+  }
+  onDiscountTypeChange();
+  updateTotals();
+  clearErrors();
+  form.scrollIntoView({ behavior: "smooth", block: "start" });
+  document.getElementById("customer_name")?.focus({ preventScroll: true });
+});
+
+loadPersistedInvoices();
